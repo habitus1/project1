@@ -6,11 +6,12 @@
 #include <unistd.h>
 #include <time.h>
 
-#define LOG_FILE "organize_log.txt"
+#define LOG_FILE "organize_log.txt" // 최종
+
+char ROOT[512]; // ⭐ 전체 정리 기준이 되는 상위 폴더 경로 저장
 
 // ------------------------- 공통 유틸 함수 -------------------------
 
-// 파일 크기 가져오기
 long get_file_size(const char *path)
 {
     struct stat st;
@@ -19,7 +20,6 @@ long get_file_size(const char *path)
     return 0;
 }
 
-// 확장자 가져오기
 const char *get_extension(const char *filename)
 {
     const char *dot = strrchr(filename, '.');
@@ -28,7 +28,6 @@ const char *get_extension(const char *filename)
     return dot + 1;
 }
 
-// 확장자 폴더 생성
 void make_folder(const char *path, const char *folder)
 {
     char full_path[512];
@@ -44,7 +43,6 @@ void make_folder(const char *path, const char *folder)
     }
 }
 
-// 로그 기록 함수 (강화 버전)
 void write_log(const char *oldpath, const char *newpath, const char *ext, long filesize)
 {
     FILE *fp = fopen(LOG_FILE, "a");
@@ -68,7 +66,7 @@ void write_log(const char *oldpath, const char *newpath, const char *ext, long f
 void generate_unique_filename(char *path)
 {
     if (access(path, F_OK) != 0)
-        return; // 중복 없음
+        return;
 
     char base[512], ext[64], temp[512];
     char *dot = strrchr(path, '.');
@@ -112,22 +110,17 @@ void organize_recursive(const char *path)
     while ((entry = readdir(dir)) != NULL)
     {
 
-        // ., .. 제외
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
             continue;
 
         snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
 
-        // 하위 폴더 → 재귀 호출
         if (entry->d_type == DT_DIR)
         {
             organize_recursive(fullpath);
         }
-
-        // 일반 파일 → 정리
         else if (entry->d_type == DT_REG)
         {
-
             const char *ext = get_extension(entry->d_name);
             char ext_folder[64];
 
@@ -136,13 +129,14 @@ void organize_recursive(const char *path)
             else
                 strcpy(ext_folder, "no_ext");
 
-            make_folder(path, ext_folder);
+            // ⭐ 변경된 핵심
+            // --- test1, test2가 아니라 ROOT 아래로 폴더 생성 ---
+            make_folder(ROOT, ext_folder);
 
             char oldpath[512], newpath[512];
             snprintf(oldpath, sizeof(oldpath), "%s/%s", path, entry->d_name);
-            snprintf(newpath, sizeof(newpath), "%s/%s/%s", path, ext_folder, entry->d_name);
+            snprintf(newpath, sizeof(newpath), "%s/%s/%s", ROOT, ext_folder, entry->d_name);
 
-            // 중복 파일명 처리
             generate_unique_filename(newpath);
 
             long size = get_file_size(oldpath);
@@ -201,7 +195,6 @@ void read_log()
 int main()
 {
     int choice;
-    char path[512];
 
     while (1)
     {
@@ -213,10 +206,10 @@ int main()
         if (choice == 1)
         {
             printf("정리할 폴더 경로 입력: ");
-            fgets(path, sizeof(path), stdin);
-            path[strcspn(path, "\n")] = '\0';
+            fgets(ROOT, sizeof(ROOT), stdin);
+            ROOT[strcspn(ROOT, "\n")] = '\0';
 
-            organize_recursive(path);
+            organize_recursive(ROOT);
             printf("=== 전체 정리 완료! ===\n");
         }
         else if (choice == 2)
